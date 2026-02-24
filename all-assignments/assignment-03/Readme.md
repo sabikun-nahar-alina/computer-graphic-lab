@@ -127,9 +127,4 @@ A window titled with the student's full ID displaying:
 
 ## Screenshot
 
-> **How to add your screenshot:**
-> 1. Run the program and take a screenshot (Windows: `Win + Shift + S` or Snipping Tool; Linux: `scrot` or `gnome-screenshot`)
-> 2. Save it as `output.png` inside a `screenshots/` folder in your project directory
-> 3. The image will render below automatically once added
-
 ![Program Output](output.png)

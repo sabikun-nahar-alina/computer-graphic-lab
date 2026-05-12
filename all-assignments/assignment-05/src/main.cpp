@@ -16,29 +16,46 @@ const unsigned int SCR_HEIGHT = 600;
 const char *vertexShaderSource =
     "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
+    "uniform float time;\n"
     "void main()\n"
     "{\n"
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+    "   // Scaling factor (Magnification between 0.5 and 1.5)\n"
+    "   float scale = 1.0 + sin(time) * 0.5;\n"
+    "   \n"
+    "   // Rotation angle\n"
+    "   float angle = time;\n"
+    "   float s = sin(angle);\n"
+    "   float c = cos(angle);\n"
+    "   \n"
+    "   // Rotation Matrix (XY plane)\n"
+    "   mat4 rotation = mat4(\n"
+    "       c,   s, 0.0, 0.0,\n"
+    "      -s,   c, 0.0, 0.0,\n"
+    "      0.0, 0.0, 1.0, 0.0,\n"
+    "      0.0, 0.0, 0.0, 1.0\n"
+    "   );\n"
+    "   \n"
+    "   // Scaling Matrix\n"
+    "   mat4 scaling = mat4(\n"
+    "       scale, 0.0,   0.0,   0.0,\n"
+    "       0.0,   scale, 0.0,   0.0,\n"
+    "       0.0,   0.0,   scale, 0.0,\n"
+    "       0.0,   0.0,   0.0,   1.0\n"
+    "   );\n"
+    "   \n"
+    "   gl_Position = scaling * rotation * vec4(aPos, 1.0);\n"
     "}\0";
 
 const char *fragmentShaderSource = "#version 330 core\n"
                                    "out vec4 FragColor;\n"
-                                   "uniform vec4 triangleColor;\n"
+                                   "uniform vec4 rectColor;\n"
                                    "void main()\n"
                                    "{\n"
-                                   "   FragColor = triangleColor;\n"
+                                   "   FragColor = rectColor;\n"
                                    "}\n\0";
 
-// State variables
-bool isRedPermanently = false;
-float animationStartTime = 0.0f;
-float timeOffset = 0.0f;
-
 // --- USER INFORMATION ---
-// Replace these with your actual ID and the first letter of your name
-const char *STUDENT_ID = "1016";
-const int CLOSE_WINDOW_KEY =
-    GLFW_KEY_ESCAPE; // Replace with GLFW_KEY_<YOUR_INITIAL> (e.g. GLFW_KEY_A)
+const char *STUDENT_ID = "1116";
 // ------------------------
 
 int main() {
@@ -50,7 +67,8 @@ int main() {
 
   // glfw window creation
   GLFWwindow *window =
-      glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, STUDENT_ID, NULL, NULL);
+      glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT,
+                       "Assignment 05 -Sabikun nahar Alina- 1016", NULL, NULL);
   if (window == NULL) {
     std::cout << "Failed to create GLFW window" << std::endl;
     glfwTerminate();
@@ -70,58 +88,46 @@ int main() {
   unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
   glCompileShader(vertexShader);
-  // check for shader compile errors
-  int success;
-  char infoLog[512];
-  glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-  if (!success) {
-    glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
-              << infoLog << std::endl;
-  }
 
   // fragment shader
   unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
   glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
   glCompileShader(fragmentShader);
-  // check for shader compile errors
-  glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-  if (!success) {
-    glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
-              << infoLog << std::endl;
-  }
 
   // link shaders
   unsigned int shaderProgram = glCreateProgram();
   glAttachShader(shaderProgram, vertexShader);
   glAttachShader(shaderProgram, fragmentShader);
   glLinkProgram(shaderProgram);
-  // check for linking errors
-  glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-  if (!success) {
-    glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
-              << infoLog << std::endl;
-  }
+
   glDeleteShader(vertexShader);
   glDeleteShader(fragmentShader);
 
-  // set up vertex data (and buffer(s)) and configure vertex attributes
+  // set up vertex data (rectangle)
   float vertices[] = {
-      -0.5f, -0.5f, 0.0f, // left
-      0.5f,  -0.5f, 0.0f, // right
-      0.0f,  0.5f,  0.0f  // top
+      0.5f,  0.5f,  0.0f, // top right
+      0.5f,  -0.5f, 0.0f, // bottom right
+      -0.5f, -0.5f, 0.0f, // bottom left
+      -0.5f, 0.5f,  0.0f  // top left
+  };
+  unsigned int indices[] = {
+      0, 1, 3, // first triangle
+      1, 2, 3  // second triangle
   };
 
-  unsigned int VBO, VAO;
+  unsigned int VBO, VAO, EBO;
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
+  glGenBuffers(1, &EBO);
 
   glBindVertexArray(VAO);
 
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
+               GL_STATIC_DRAW);
 
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
@@ -135,50 +141,30 @@ int main() {
     processInput(window);
 
     // render
-    glClearColor(0.1f, 0.1f, 0.1f,
-                 1.0f); // Dark background to see colors better
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     // Use the shader program
     glUseProgram(shaderProgram);
 
-    // Color Logic
-    float r = 0.0f, g = 0.0f, b = 0.0f;
+    float timeValue = glfwGetTime();
 
-    if (isRedPermanently) {
-      // Rule 2b: Triangle turns red permanently, animation stops
-      r = 1.0f;
-      g = 0.0f;
-      b = 0.0f;
-    } else if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-      // Rule 2a: Triangle turns white while W is held down
-      r = 1.0f;
-      g = 1.0f;
-      b = 1.0f;
-      // Capture time to maintain animation continuity when released
-      timeOffset = glfwGetTime();
-    } else {
-      // Rule 1: Initially colored cyan (0,1,1), animates to magenta (1,0,1)
-      float timeValue = glfwGetTime();
-      // Use sin to interpolate between 0 and 1
-      float t = (sin(timeValue) + 1.0f) / 2.0f;
+    // Update time uniform in vertex shader
+    int timeLocation = glGetUniformLocation(shaderProgram, "time");
+    glUniform1f(timeLocation, timeValue);
 
-      // Cyan: (0, 1, 1), Magenta: (1, 0, 1)
-      // R: 0 -> 1 (t)
-      // G: 1 -> 0 (1-t)
-      // B: 1 -> 1 (always 1)
-      r = t;
-      g = 1.0f - t;
-      b = 1.0f;
-    }
+    // Color Logic: Red (1,0,0) to White (1,1,1)
+    float t = (sin(timeValue) + 1.0f) / 2.0f; // Interpolation factor
+    float r = 1.0f;
+    float g = t;
+    float b = t;
 
-    int vertexColorLocation =
-        glGetUniformLocation(shaderProgram, "triangleColor");
-    glUniform4f(vertexColorLocation, r, g, b, 1.0f);
+    int colorLocation = glGetUniformLocation(shaderProgram, "rectColor");
+    glUniform4f(colorLocation, r, g, b, 1.0f);
 
-    // draw triangle
+    // draw rectangle
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
     // glfw: swap buffers and poll IO events
     glfwSwapBuffers(window);
@@ -188,6 +174,7 @@ int main() {
   // optional: de-allocate all resources
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(1, &VBO);
+  glDeleteBuffers(1, &EBO);
   glDeleteProgram(shaderProgram);
 
   // glfw: terminate
@@ -196,15 +183,8 @@ int main() {
 }
 
 void processInput(GLFWwindow *window) {
-  // Rule 3b: Press the first letter of your name -> closes the window
-  // Rule 3b fallback: ESC also closes for safety
-  if (glfwGetKey(window, CLOSE_WINDOW_KEY) == GLFW_PRESS ||
-      glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+  if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     glfwSetWindowShouldClose(window, true);
-
-  // Rule 2b: Press R -> Triangle turns red permanently
-  if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
-    isRedPermanently = true;
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
